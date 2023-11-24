@@ -4,6 +4,7 @@ import os
 
 from pandas_profiling import ProfileReport
 from streamlit_pandas_profiling import st_profile_report
+import matplotlib.pyplot as plt
 
 # Sidebar
 with st.sidebar:
@@ -54,17 +55,17 @@ if option == "Regression":
         st_profile_report(profile_report)
 
     if choice == "ML":
-        st.title("Machine Learning OKE!")
+        st.title("REGRESI OKE!")
         features = st.multiselect("Select Features", df.columns)
         target = st.selectbox("Select Target", df.columns)
-        # target = st.selectbox("Select your target", df.columns)
+        new_df = create_new_dataframe(df, features, target)
+        new_df
         if st.button("Train Model"):
             st.subheader("Selected Features and Target:")
             st.write("Features:", features)
             st.write("Target:", target)
             with st.spinner("Running Machine Learning Experiment..."):
-                setup(df, target=target, numeric_features=features, categorical_features=features, verbose=False)
-                # setup(df, target=target, verbose=False)
+                setup(new_df, target=target, verbose=False)
                 setup_df = pull()
             st.info("This is ML experiment settings")
             st.dataframe(setup_df)
@@ -126,6 +127,39 @@ if option == "Classification":
             st.info("This is the ML models")
             st.dataframe(compare_df)
             print(best_model)
+
+            st.subheader("Model Visualization:")
+
+            st.write("AUC Scores:")
+            try:
+                plot_model(best_model, plot = 'auc', display_format='streamlit')
+            except Exception as e:
+                st.warning("Cannot display the plot, possibly because the model does not support it!")
+
+            st.write("Boundary:")
+            try:
+                plot_model(best_model, plot = 'boundary', display_format='streamlit')
+            except Exception as e:
+                st.warning("Cannot display the plot, possibly because the model does not support it!")
+
+            st.write("Confusion Matrix:")
+            try:
+                plot_model(best_model, plot = 'confusion_matrix', display_format='streamlit')
+            except Exception as e:
+                st.warning("Cannot display the plot, possibly because the model does not support it!")
+
+            st.write("Precision-Recall Curve:")
+            try:
+                plot_model(best_model, plot = 'pr', display_format='streamlit')
+            except Exception as e:
+                st.warning("Cannot display the plot, possibly because the model does not support it!")
+
+            st.write("Feature Importance:")
+            try:
+                plot_model(best_model, plot = 'feature', display_format='streamlit')
+            except Exception as e:
+                st.warning("Cannot display the plot, possibly because the model does not support it!")
+
             save_model(best_model, 'classification_model')
 
     if choice == "Download":
