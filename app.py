@@ -3,33 +3,94 @@ import pandas as pd
 import os
 
 from pandas_profiling import ProfileReport
+from sklearn.model_selection import train_test_split
 from streamlit_pandas_profiling import st_profile_report
 import matplotlib.pyplot as plt
-from weasyprint import HTML
 import webbrowser
+import random
 
-if os.path.exists("sourcedata.csv"):
-    df = pd.read_csv("sourcedata.csv", index_col=None)
+
+st.set_page_config(page_title='The Machine Learning Algorithm Comparison App',
+    layout='wide')
 
 def create_new_dataframe(df, features, target):
     selected_columns = features + [target]
     new_df = df[selected_columns].copy()
     return new_df
 
-def profiling():
-    st.title("Profiling Dataset")
-    profile_report = df.profile_report()
-    profile_report.to_file("report.html")
-    # st_profile_report(profile_report)
+def df_report(df):
+    st.subheader('2. Dataset Profiling (Optional)')
+    if st.checkbox("Analyze Dataset"):
+        if "profile_report" not in st.session_state:
+            with st.spinner("Creating dataset profile report..."):
+                profile_report = df.profile_report()
+                st.session_state.profile_report = profile_report
 
-st.set_page_config(page_title='The Machine Learning Algorithm Comparison App',
-    layout='wide')
+        path_to_html = "report.html"
+        with open(path_to_html, 'r') as f:
+            html_data = st.session_state.profile_report.to_html()
+            st.components.v1.html(html_data, height=768, scrolling=True)
+
+        st.download_button(
+            label="Download Report",
+            data=html_data.encode('utf-8'),
+            file_name="report.html",
+            mime="text/html",
+            key="download_button_key"
+        )
+    # st.subheader('2. Dataset Profiling (Optional)')
+    # st.info('Data profiling is the process of examining, analyzing, and creating useful summaries of data.')
+    # if st.checkbox("Analyze Dataset (may take a while)"):
+    #     with st.spinner("Creating dataset profile report..."):
+    #         profile_report = df.profile_report()
+    #         profile_report.to_file('report.html')
+
+    # path_to_html = "report.html"
+    # st.success('Creating dataset profiling success!')
+    # with open(path_to_html, 'r') as f:
+    #     html_data = f.read()
+    #     st.components.v1.html(html_data, height=768, scrolling=True)
+
+    # st.download_button(
+    #     label="Download Report",
+    #     data=html_data.encode('utf-8'),
+    #     file_name="report.html",
+    #     mime="text/html",
+    #     key="download_button_key"
+    # )
+
+def reg_automl():
+    st.subheader("3. Training ML Model")
+    features = st.multiselect("Select Features", df.columns)
+    target = st.selectbox("Select Target", df.columns)
+    new_df = create_new_dataframe(df, features, target)
+    new_df
+    if st.button("Train Model"):
+        st.subheader("Selected Features and Target:")
+        st.write("Features:", features)
+        st.write("Target:", target)
+        with st.spinner("Running Machine Learning Experiment..."):
+            setup(new_df, target=target, verbose=False)
+            setup_df = pull()
+        st.info("This is ML experiment settings")
+        st.dataframe(setup_df)
+        with st.spinner("Comparing Models..."):
+            best_model = compare_models()
+            compare_df = pull()
+        st.info("This is the ML models")
+        st.dataframe(compare_df)
+        print(best_model)
+        save_model(best_model, 'regression_model')
+
 # Sidebar
 with st.sidebar:
     st.image("pngegg.png")
     option = st.sidebar.selectbox("Options", ["Classification", "Regression", "Clustering"])
     st.header('1. Upload your CSV data')
     file = st.sidebar.file_uploader("Upload Dataset Here:", type=["csv", "xlsx", "json", 'data'])
+    st.header('2. Set Parameters')
+    split_size = st.sidebar.slider('Data split ratio (% for Training Set)', 10, 90, 80, 5)
+    seed_number = st.sidebar.slider('Set the random seed number', 1, 100, 42, 1)
     # st.header("Pengaturan")
     choice = st.radio("Navigation", ["Upload", "Profiling", "ML", "Download"])
 
@@ -42,88 +103,52 @@ except ImportError as e:
     st.error(f"Module import error: {e}")
     st.stop()
 
-if option == "Regression":
-    # Menampilkan konten berdasarkan opsi yang dipilih
-    if choice == "Upload":
-        st.write("""
-            # The Machine Learning Algorithm Comparison App
+st.write("""
+    # The Machine Learning Algorithm Comparison App
 
-            In this implementation, the **lazypredict** library is used for building several machine learning models at once.
+    In this implementation, the **PyCaret** library is used for building several machine learning models at once.
 
-            Developed by: [DanAnardha](https://www.github.com/DanAnardha)
+    Developed by: [DanAnardha](https://www.github.com/DanAnardha)
 
-            """)
-        if file is not None:
-            file_extension = file.name.split(".")[-1]
-            if file_extension == "csv" or file_extension == "data":
-                df = pd.read_csv(file, index_col=None)
-            elif file_extension == "xlsx":
-                df = pd.read_excel(file, index_col=None)
-            elif file_extension == "json":
-                df = pd.read_json(file)
-            else:
-                st.sidebar.error("Unsupported file format. Please upload a CSV, Excel, or JSON file.")
-                st.sidebar.stop()
-            
-            df.to_csv("sourcedata.csv", index=None)
-            st.dataframe(df)
-        else:
-            st.info('Awaiting for CSV file to be uploaded.')
-            if st.button('Press to use Example Dataset'):
-                if option == "Regression":
-                    df = pd.read_csv('example_datasets/regression_example.csv')
-                elif option == "Classification":
-                    df = pd.read_csv('example_datasets/classification_example.csv')
-                st.dataframe(df)
-        
-        path_to_html = "dd/output_profile.html" 
-        with open(path_to_html,'r') as f: 
-            html_data = f.read()
-        if st.button("Buka HTML di Tab Baru", disabled=True):
-            temp_html_path = "temp.html"
-            with open(temp_html_path, 'w') as temp_file:
-                temp_file.write(html_data)
-            webbrowser.open_new_tab(temp_html_path)
-        # if st.button("Analyze Dataset"):
-        #     profiling()
-
-    if choice == "ML":
-        st.title("REGRESI OKE!")
-        features = st.multiselect("Select Features", df.columns)
-        target = st.selectbox("Select Target", df.columns)
-        new_df = create_new_dataframe(df, features, target)
-        new_df
-        if st.button("Train Model"):
-            st.subheader("Selected Features and Target:")
-            st.write("Features:", features)
-            st.write("Target:", target)
-            with st.spinner("Running Machine Learning Experiment..."):
-                setup(new_df, target=target, verbose=False)
-                setup_df = pull()
-            st.info("This is ML experiment settings")
-            st.dataframe(setup_df)
-            with st.spinner("Comparing Models..."):
-                best_model = compare_models()
-                compare_df = pull()
-            st.info("This is the ML models")
-            st.dataframe(compare_df)
-            print(best_model)
-            save_model(best_model, 'regression_model')
+    """)
+st.subheader('1. Dataset')
+if file is not None:
+    file_extension = file.name.split(".")[-1]
+    if file_extension == "csv" or file_extension == "data":
+        df = pd.read_csv(file, index_col=None)
+    elif file_extension == "xlsx":
+        df = pd.read_excel(file, index_col=None)
+    elif file_extension == "json":
+        df = pd.read_json(file)
+    else:
+        st.sidebar.error("Unsupported file format. Please upload a CSV, Excel, or JSON file.")
+        st.sidebar.stop()
+    st.markdown('The uploaded file is used as the dataset.')
+    df.to_csv("sourcedata.csv", index=None)
+    st.dataframe(df)
+    st.info(f"Dataset dimension: {df.shape}")
+    df_report(df)
+    reg_automl()
+else:
+    st.info('Awaiting for CSV file to be uploaded.')
+    if st.checkbox('Press to use Example Dataset'):
+        if option == "Regression":
+            st.markdown('The [University Admissions](https://www.kaggle.com/code/yogesh239/analysis-of-university-admissions-data) dataset is used as the example.')
+            df = pd.read_csv('example_datasets/regression_example.csv')
+        elif option == "Classification":
+            st.markdown('The [Diabetes](https://www.kaggle.com/datasets/akshaydattatraykhare/diabetes-dataset) dataset is used as the example.')
+            df = pd.read_csv('example_datasets/classification_example.csv')
+        df.to_csv("sourcedata.csv", index=None)
+        st.dataframe(df)
+        st.info(f"Dataset dimension: {df.shape}")
+        df_report(df)
+        reg_automl()
 
     if choice == "Download":
         with open("regression_model.pkl", 'rb') as f:
             st.download_button("Download Model", f, "regression_model.pkl")
 
-if option == "Classification":
-    # Menampilkan konten berdasarkan opsi yang dipilih
-    if choice == "Upload":
-        st.title("Upload Your Data For Modelling")
-
-    if choice == "Profiling":
-        st.title("Profiling Dataset")
-        profile_report = df.profile_report()
-        st_profile_report(profile_report)
-
+if option == "Classification":  
     if choice == "ML":
         st.title("Machine Learning OKE!")
         features = st.multiselect("Select Features", df.columns)
