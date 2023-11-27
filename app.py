@@ -5,17 +5,34 @@ import os
 from pandas_profiling import ProfileReport
 from streamlit_pandas_profiling import st_profile_report
 import matplotlib.pyplot as plt
-
-# Sidebar
-with st.sidebar:
-    st.image("pngegg.png")
-    st.header("Pengaturan")
-    option = st.sidebar.selectbox("Pilih opsi", ["Classification", "Regression", "Clustering"])
-    choice = st.radio("Navigation", ["Upload", "Profiling", "ML", "Download"])
+from weasyprint import HTML
+import webbrowser
 
 if os.path.exists("sourcedata.csv"):
     df = pd.read_csv("sourcedata.csv", index_col=None)
-        
+
+def create_new_dataframe(df, features, target):
+    selected_columns = features + [target]
+    new_df = df[selected_columns].copy()
+    return new_df
+
+def profiling():
+    st.title("Profiling Dataset")
+    profile_report = df.profile_report()
+    profile_report.to_file("report.html")
+    # st_profile_report(profile_report)
+
+st.set_page_config(page_title='The Machine Learning Algorithm Comparison App',
+    layout='wide')
+# Sidebar
+with st.sidebar:
+    st.image("pngegg.png")
+    option = st.sidebar.selectbox("Options", ["Classification", "Regression", "Clustering"])
+    st.header('1. Upload your CSV data')
+    file = st.sidebar.file_uploader("Upload Dataset Here:", type=["csv", "xlsx", "json", 'data'])
+    # st.header("Pengaturan")
+    choice = st.radio("Navigation", ["Upload", "Profiling", "ML", "Download"])
+
 try:
     if option == "Regression":
         from pycaret.regression import *
@@ -25,16 +42,17 @@ except ImportError as e:
     st.error(f"Module import error: {e}")
     st.stop()
 
-def create_new_dataframe(df, features, target):
-    selected_columns = features + [target]
-    new_df = df[selected_columns].copy()
-    return new_df
-
 if option == "Regression":
     # Menampilkan konten berdasarkan opsi yang dipilih
     if choice == "Upload":
-        st.title("Upload Your Data For Modelling")
-        file = st.file_uploader("Upload Dataset Here", type=["csv", "xlsx", "json", 'data'])
+        st.write("""
+            # The Machine Learning Algorithm Comparison App
+
+            In this implementation, the **lazypredict** library is used for building several machine learning models at once.
+
+            Developed by: [DanAnardha](https://www.github.com/DanAnardha)
+
+            """)
         if file is not None:
             file_extension = file.name.split(".")[-1]
             if file_extension == "csv" or file_extension == "data":
@@ -44,15 +62,30 @@ if option == "Regression":
             elif file_extension == "json":
                 df = pd.read_json(file)
             else:
-                st.error("Unsupported file format. Please upload a CSV, Excel, or JSON file.")
-                st.stop()
+                st.sidebar.error("Unsupported file format. Please upload a CSV, Excel, or JSON file.")
+                st.sidebar.stop()
+            
             df.to_csv("sourcedata.csv", index=None)
             st.dataframe(df)
-
-    if choice == "Profiling":
-        st.title("Profiling Dataset")
-        profile_report = df.profile_report()
-        st_profile_report(profile_report)
+        else:
+            st.info('Awaiting for CSV file to be uploaded.')
+            if st.button('Press to use Example Dataset'):
+                if option == "Regression":
+                    df = pd.read_csv('example_datasets/regression_example.csv')
+                elif option == "Classification":
+                    df = pd.read_csv('example_datasets/classification_example.csv')
+                st.dataframe(df)
+        
+        path_to_html = "dd/output_profile.html" 
+        with open(path_to_html,'r') as f: 
+            html_data = f.read()
+        if st.button("Buka HTML di Tab Baru", disabled=True):
+            temp_html_path = "temp.html"
+            with open(temp_html_path, 'w') as temp_file:
+                temp_file.write(html_data)
+            webbrowser.open_new_tab(temp_html_path)
+        # if st.button("Analyze Dataset"):
+        #     profiling()
 
     if choice == "ML":
         st.title("REGRESI OKE!")
@@ -85,20 +118,6 @@ if option == "Classification":
     # Menampilkan konten berdasarkan opsi yang dipilih
     if choice == "Upload":
         st.title("Upload Your Data For Modelling")
-        file = st.file_uploader("Upload Dataset Here", type=["csv", "xlsx", "json", "data"])
-        if file is not None:
-            file_extension = file.name.split(".")[-1]
-            if file_extension == "csv" or file_extension == "data":
-                df = pd.read_csv(file, index_col=None)
-            elif file_extension == "xlsx":
-                df = pd.read_excel(file, index_col=None)
-            elif file_extension == "json":
-                df = pd.read_json(file)
-            else:
-                st.error("Unsupported file format. Please upload a CSV, Excel, or JSON file.")
-                st.stop()
-            df.to_csv("sourcedata.csv", index=None)
-            st.dataframe(df)
 
     if choice == "Profiling":
         st.title("Profiling Dataset")
