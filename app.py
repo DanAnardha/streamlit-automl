@@ -58,7 +58,7 @@ def reg_automl(split_size, seed_number):
             compare_df = pull()
         st.info("This is the ML models")
         st.dataframe(compare_df)
-        print(best_model)
+        best_model
         save_model(best_model, 'regression_model')
         st.session_state.model_saved = True
         plot_reg(best_model)
@@ -78,12 +78,12 @@ def class_automl(split_size, seed_number):
             compare_df = pull()
         st.info("This is the ML models")
         st.dataframe(compare_df)
-        print(best_model)
+        best_model
         save_model(best_model, 'classification_model')
         st.session_state.model_saved = True
         plot_class(best_model)
 
-def cluster_automl():
+def cluster_automl(n_cluster):
     st.subheader("Selected Features")
     st.write("Features:", features)
     if "model_saved" not in st.session_state:
@@ -93,7 +93,7 @@ def cluster_automl():
         st.info("This is ML experiment settings")
         st.dataframe(setup_df)
         with st.spinner("Creating Models..."):
-            model = create_model('kmeans')
+            model = create_model('kmeans', num_clusters=n_cluster)
         st.info("This is the ML model")
         model
         save_model(model, 'clustering_model')
@@ -267,7 +267,7 @@ if action == 'Create Model':
         elif option == 'Clustering':
             st.subheader("3. Train Clustering Model")
             st.info('Choose features and carefully and systematically.')
-            n_cluster = st.sidebar.slider('Choose the number of clusters', 2, 20, 3, 1)
+            n_cluster = st.slider('Choose the number of clusters', 2, 20, 3, 1)
             features = st.multiselect("Select Features", df.columns)
             try:
                 new_df = df_unsupervised(df, features)
@@ -289,6 +289,9 @@ if action == 'Create Model':
             elif option == "Classification":
                 st.markdown('The [Diabetes](https://www.kaggle.com/datasets/akshaydattatraykhare/diabetes-dataset) dataset is used as the example.')
                 df = pd.read_csv('example_datasets/classification_example.csv')
+            elif option == "Clustering":
+                st.markdown('The [Facebook Live Sellers in Thailand](http://archive.ics.uci.edu/dataset/488/facebook+live+sellers+in+thailand) dataset is used as the example.')
+                df = pd.read_csv('example_datasets/clustering_example.csv')
             df.to_csv("sourcedata.csv", index=None)
             st.dataframe(df)
             st.info(f"Dataset dimension: {df.shape}")
