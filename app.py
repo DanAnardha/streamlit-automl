@@ -6,8 +6,8 @@ from pandas_profiling import ProfileReport
 from sklearn.model_selection import train_test_split
 from streamlit_pandas_profiling import st_profile_report
 import matplotlib.pyplot as plt
-import webbrowser
-import random
+from pathlib import Path
+from io import BytesIO
 
 st.set_page_config(page_title='The Machine Learning Algorithm Comparison App',
     layout='wide')
@@ -104,7 +104,7 @@ def cluster_automl(n_cluster):
         plot_cluster(model)
 
 def upload_test():
-    st.subheader('2. Upload Predict Dataset')
+    st.subheader('1. Upload Predict Dataset')
     widget_id = (id for id in range(1, 100_00))
     st.info('Awaiting for testing dataset file to be uploaded (dataset you want to predict, must contain all features columns in model).')
     file_test = st.file_uploader("Upload Testing Dataset Here:", key=next(widget_id), type=["csv", "xlsx", "json", 'data'])
@@ -149,10 +149,10 @@ def predict(model, df_test):
     st.subheader('4. Download Data')
     file_format = st.selectbox("Select format:", ['CSV', "Excel"])
     if file_format == "CSV":
-        pred.to_csv('download_predict/classification_predict.csv', index = False)
-        st.download_button(label="Download", data=pred.to_csv(index=False).encode('utf-8'), file_name='classification_predict.csv', key='download_button_csv')
+        pred.to_csv('download_predict/predict.csv', index = False)
+        st.download_button(label="Download", data=pred.to_csv(index=False).encode('utf-8'), file_name='predict.csv', key='download_button_csv')
     else:
-        st.download_button(label="Download", data=pred.to_excel(index=False).encode('utf-8'), file_name='classification_predict.xlsx', key='download_button_excel')
+        st.download_button(label="Download", data=pred.to_excel(index=False).encode('utf-8'), file_name='predict.xlsx', key='download_button_excel')
 
 def plot_class(best_model):
     st.write("AUC Scores:")
@@ -434,141 +434,35 @@ else:
         """)
     if file is not None:
         file_extension = file.name.split(".")[-1]
-        if file_extension == "csv" or file_extension == "data":
-            df = pd.read_csv(file, index_col=None)
-        elif file_extension == "xlsx":
-            df = pd.read_excel(file, index_col=None)
-        elif file_extension == "json":
-            df = pd.read_json(file)
-        else:
-            st.sidebar.error("Unsupported file format. Please upload a CSV, Excel, or JSON file.")
-            st.sidebar.stop()
-        st.markdown('The uploaded file is used as the dataset.')
-        df.to_csv("sourcedata.csv", index=None)
-        st.dataframe(df)
-        st.info(f"Dataset dimension: {df.shape}")
-        df_report(df)
-        if option == "Regression":
-            st.subheader("3. Train Regression Model")
-            st.info('Choose features and targets carefully and systematically.')
-            features = st.multiselect("Select Features", df.columns)
-            target = st.selectbox("Select Target", df.columns)
-            try:
-                new_df = df_supervised(df, features, target)
-                new_df
-            except Exception as e:
-                st.warning("Cannot display the dataframe, possibly because you selected the same feature and target.")
-            st.info('You can set the training data split ratio and random seed number on the sidebar.')
-            if st.button("Train Model"):
-                reg_automl(split_size, seed_number)
-                st.subheader('5. Download Model')
-                st.info('The model you downloaded is the model with the lowest error.')
-                st.warning('Refresh this site when done training. (This site will refreshed when you click Download Model)')
-                with open("regression_model.pkl", 'rb') as f:
-                    st.download_button("Download Model", f, "regression_model.pkl")
-        elif option == "Classification":
-            st.subheader("3. Train Classification Model")
-            st.info('Choose features and targets carefully and systematically.')
-            features = st.multiselect("Select Features", df.columns)
-            target = st.selectbox("Select Target", df.columns)
-            try:
-                new_df = df_supervised(df, features, target)
-                new_df
-            except Exception as e:
-                st.warning("Cannot display the dataframe, possibly because you selected the same feature and target.")
-            st.info('You can set the training data split ratio and random seed number on the sidebar.')
-            if st.button("Train Model"):
-                class_automl(split_size, seed_number)
-                st.subheader('5. Download Model')
-                st.info('The model you downloaded is the model with the highest accuracy.')
-                st.warning('Refresh this site when done training. (This site will refreshed when you click Download Model)')
-                with open("classification_model.pkl", 'rb') as f:
-                    st.download_button("Download Model", f, "classification_model.pkl")
-        elif option == 'Clustering':
-            st.subheader("3. Train Clustering Model")
-            st.info('Choose features and carefully and systematically.')
-            n_cluster = st.slider('Choose the number of clusters', 2, 20, 3, 1)
-            features = st.multiselect("Select Features", df.columns)
-            try:
-                new_df = df_unsupervised(df, features)
-                new_df
-            except Exception as e:
-                st.warning("Cannot display the dataframe, possibly because you selected the same feature and target.")
-            if st.button("Train Model"):
-                cluster_automl(n_cluster)
-                st.subheader('5. Download Model')
-                st.warning('Refresh this site when done training. (This site will refreshed when you click Download Model)')
-                with open("clustering_model.pkl", 'rb') as f:
-                    st.download_button("Download Model", f, "clustering_model.pkl")
+        file_path = Path(file.name)
+        file_name = file_path.stem
+        file_extension = file_path.suffix
+        with open(file_name + file_extension, "wb") as f:
+            f.write(file.read())
+        try:
+            if option == "Regression":
+                model = load_model(file_name)
+            elif option == "Classification":
+                model = load_model(file_name)
+            elif option == "Clustering":
+                model = load_model(file_name)
+        except Exception as e:
+            st.error(f"Cannot load the model, Error {e}")
+        df_test = upload_test()
+        st.subheader('2. Predict Model')
+        st.info('Uploaded dataset must include all features from trained model')
+        if st.button('Predict'):
+            predict(model, df_test)
     else:
         if st.sidebar.checkbox('Press to use Example Model'):
             if option == "Regression":
-                # st.markdown('The [University Admissions](https://www.kaggle.com/code/yogesh239/analysis-of-university-admissions-data) dataset is used as the example.')
                 model = load_model('example_models/regression_model')
             elif option == "Classification":
-                # st.markdown('The [Diabetes](https://www.kaggle.com/datasets/akshaydattatraykhare/diabetes-dataset) dataset is used as the example.')
                 model = load_model('example_models/classification_model')
-                st.subheader("1. Model Visualization")
-                plot_class(model)
             elif option == "Clustering":
-                # st.markdown('The [Facebook Live Sellers in Thailand](http://archive.ics.uci.edu/dataset/488/facebook+live+sellers+in+thailand) dataset is used as the example.')
                 model = load_model('example_models/clustering_model')
-                st.subheader("1. Model Visualization")
-                plot_cluster(model)
             df_test = upload_test()
-            st.subheader('3. Predict Model')
+            st.subheader('2. Predict Model')
             st.info('Uploaded dataset must include all features from trained model')
             if st.button('Predict'):
                 predict(model, df_test)
-            # if option == "Regression":
-            #     st.subheader("3. Train Regression Model")
-            #     st.info('Choose features and targets carefully and systematically.')
-            #     features = st.multiselect("Select Features", df.columns)
-            #     target = st.selectbox("Select Target", df.columns)
-            #     try:
-            #         new_df = df_supervised(df, features, target)
-            #         new_df
-            #     except Exception as e:
-            #         st.warning("Cannot display the dataframe, possibly because you selected the same feature and target.")
-            #     st.info('You can set the training data split ratio and random seed number on the sidebar.')
-            #     if st.button("Train Model"):
-            #         reg_automl(split_size, seed_number)
-            #         st.subheader('5. Download Model')
-            #         st.info('The model you downloaded is the model with the lowest error.')
-            #         st.warning('Refresh this site when done training. (This site will refreshed when you click Download Model)')
-            #         with open("regression_model.pkl", 'rb') as f:
-            #             st.download_button("Download Model", f, "regression_model.pkl")
-            # elif option == "Classification":
-            #     st.subheader("3. Train Classification Model")
-            #     st.info('Choose features and targets carefully and systematically.')
-            #     features = st.multiselect("Select Features", df.columns)
-            #     target = st.selectbox("Select Target", df.columns)
-            #     try:
-            #         new_df = df_supervised(df, features, target)
-            #         new_df
-            #     except Exception as e:
-            #         st.warning("Cannot display the dataframe, possibly because you selected the same feature and target.")
-            #     st.info('You can set the training data split ratio and random seed number on the sidebar.')
-            #     if st.button("Train Model"):
-            #         class_automl(split_size, seed_number)
-            #         st.subheader('5. Download Model')
-            #         st.info('The model you downloaded is the model with the highest accuracy.')
-            #         st.warning('Refresh this site when done training. (This site will refreshed when you click Download Model)')
-            #         with open("classification_model.pkl", 'rb') as f:
-            #             st.download_button("Download Model", f, "classification_model.pkl")
-            # elif option == 'Clustering':
-            #     st.subheader("3. Train Clustering Model")
-            #     st.info('Choose features and carefully and systematically.')
-            #     n_cluster = st.slider('Choose the number of clusters', 2, 20, 3, 1)
-            #     features = st.multiselect("Select Features", df.columns)
-            #     try:
-            #         new_df = df_unsupervised(df, features)
-            #         new_df
-            #     except Exception as e:
-            #         st.warning("Cannot display the dataframe, possibly because you selected the same feature and target.")
-            #     if st.button("Train Model"):
-            #         cluster_automl(n_cluster)
-            #         st.subheader('5. Download Model')
-            #         st.warning('Refresh this site when done training. (This site will refreshed when you click Download Model)')
-            #         with open("clustering_model.pkl", 'rb') as f:
-            #             st.download_button("Download Model", f, "clustering_model.pkl")
