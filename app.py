@@ -2,12 +2,11 @@ import streamlit as st
 import pandas as pd
 import os
 
-from pandas_profiling import ProfileReport
+from ydata_profiling import ProfileReport
 from sklearn.model_selection import train_test_split
 from streamlit_pandas_profiling import st_profile_report
 import matplotlib.pyplot as plt
 from pathlib import Path
-from io import BytesIO
 
 st.set_page_config(page_title='The Machine Learning Algorithm Comparison App',
     layout='wide')
